@@ -211,12 +211,17 @@ export function StarfieldBackground() {
       }
     }
 
-    // Animation loop
+    // Fixed update rate: 30 updates per second
+    const updatesPerSecond = 30
+    const updateInterval = 1000 / updatesPerSecond // ~33.33ms per update
+
+    // Animation loop with fixed update rate
     const animate = () => {
+      const now = Date.now()
+
+      // Clear canvas
       ctx.fillStyle = "rgba(10, 10, 25, 1)"
       ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-      const now = Date.now()
 
       // Create new constellation if needed
       if (now - lastConstellationTime > nextConstellationInterval) {
@@ -315,14 +320,14 @@ export function StarfieldBackground() {
         ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2)
         ctx.fill()
       })
-
-      requestAnimationFrame(animate)
     }
 
-    animate()
+    // Start animation loop at exactly 30 updates per second
+    const intervalId = setInterval(animate, updateInterval)
 
     return () => {
       window.removeEventListener("resize", resizeCanvas)
+      clearInterval(intervalId)
     }
   }, [])
 

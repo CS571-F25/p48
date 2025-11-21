@@ -1,23 +1,19 @@
-import { StarfieldBackground } from './components/StarfieldBackground'
-import { DownloadButton } from './components/DownloadButton'
+import { Routes, Route } from 'react-router-dom'
+import { Navbar } from './components/Navbar'
+import { Home } from './pages/Home'
+import { Documentation } from './pages/Documentation'
+import { Blog } from './pages/Blog'
 import './App.css'
 
 function App() {
   return (
     <>
-      <StarfieldBackground />
-      <div className="main-content">
-        <div className="content-left">
-          <h1>Your Files. Organized in One Click.</h1>
-          <p className="subtitle">
-            Stop sorting by hand. Telescope creates an organized file system you can rely on.
-          </p>
-          <DownloadButton />
-        </div>
-        <div className="content-right">
-          <div className="placeholder-image"></div>
-        </div>
-      </div>
+      <Navbar />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/documentation" element={<Documentation />} />
+        <Route path="/blog" element={<Blog />} />
+      </Routes>
     </>
   )
 }

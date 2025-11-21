@@ -1,0 +1,47 @@
+.pricing-section {
+  padding: 4rem 2rem;
+  min-height: 50vh;
+}
+
+.pricing-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.pricing-title {
+  font-size: 2.5em;
+  font-weight: bold;
+  margin: 0 0 1rem 0;
+  color: #e0e7ff;
+  text-shadow: 0 2px 10px rgba(139, 92, 246, 0.3);
+}
+
+.pricing-subtitle {
+  font-size: 1.25em;
+  color: #c7d2fe;
+  margin: 0 0 3rem 0;
+}
+
+.pricing-tiers {
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .pricing-section {
+    padding: 2rem 1rem;
+  }
+
+  .pricing-title {
+    font-size: 2em;
+  }
+
+  .pricing-tiers {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
