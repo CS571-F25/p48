@@ -4,18 +4,20 @@ import "./StarfieldBackground.css"
 interface Star {
   x: number
   y: number
-  vx: number
-  vy: number
-  radius: number
+  size: number
   opacity: number
+  twinkleSpeed: number
+  twinkleOffset: number
 }
 
-interface Constellation {
-  stars: number[]
-  edges: [number, number][] // Array of [starIndex1, starIndex2] pairs representing connections
+interface Comet {
+  x: number
+  y: number
+  vx: number
+  vy: number
+  size: number
   opacity: number
-  glowIntensity: number
-  createdAt: number
+  trail: { x: number; y: number; opacity: number }[]
 }
 
 export function StarfieldBackground() {
@@ -28,306 +30,162 @@ export function StarfieldBackground() {
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
-    // Set canvas size
     const resizeCanvas = () => {
       canvas.width = window.innerWidth
       canvas.height = window.innerHeight
     }
-
     resizeCanvas()
     window.addEventListener("resize", resizeCanvas)
 
-    // Create stars
-    const stars: Star[] = []
-    const numStars = 60
+    const stars: Star[] = Array.from({ length: 200 }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      size: Math.random() * 1.2 + 0.3, // Smaller: 0.3 to 1.5px
+      opacity: Math.random() * 0.2 + 0.8, // Range: 0.8 to 1.0
+      twinkleSpeed: Math.random() * 0.003 + 0.001,
+      twinkleOffset: Math.random() * Math.PI * 2,
+    }))
 
-    for (let i = 0; i < numStars; i++) {
-      stars.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 0.3,
-        vy: (Math.random() - 0.5) * 0.3,
-        radius: Math.random() * 1.5 + 0.5,
-        opacity: Math.random() * 0.5 + 0.5,
-      })
-    }
+    const comets: Comet[] = []
+    const maxComets = 5
 
-    // Constellation management
-    const constellations: Constellation[] = []
-    let lastConstellationTime = Date.now()
-    let nextConstellationInterval = 0 // Will be set dynamically
-    const constellationDuration = 2000 // Constellation blinks for 2.5 seconds
-    const fadeInDuration = 200 // Fade in over 1 second
-    const fadeOutDuration = 600 // Fade out over 1 second
-
-    // Generate a random interval between 0 and 5 seconds, skewed towards longer times
-    const getNextConstellationInterval = () => {
-      // Using power function to skew towards longer times (closer to 5 seconds)
-      // Math.pow(1 - Math.random(), 0.5) gives values skewed towards 1
-      // Multiplying by 5000 gives values between 0 and 5000ms, skewed towards 5000ms
-      return Math.pow(1 - Math.random(), 0.5) * 6000
-    }
-
-    // Initialize the first interval
-    nextConstellationInterval = getNextConstellationInterval()
-
-    // Build a tree structure (like a constellation) from a set of stars
-    const buildConstellationTree = (starIndices: number[]): [number, number][] => {
-      if (starIndices.length < 2) return []
-
-      const edges: [number, number][] = []
-      const connected = new Set<number>([starIndices[0]]) // Start with the first star
-      const unconnected = new Set(starIndices.slice(1))
-
-      // Build a tree by connecting each unconnected star to its nearest connected star
-      while (unconnected.size > 0) {
-        let minDistance = Infinity
-        let bestConnection: [number, number] | null = null
-
-        // Find the shortest connection between connected and unconnected stars
-        for (const connectedStar of connected) {
-          for (const unconnectedStar of unconnected) {
-            const dx = stars[connectedStar].x - stars[unconnectedStar].x
-            const dy = stars[connectedStar].y - stars[unconnectedStar].y
-            const distance = Math.sqrt(dx * dx + dy * dy)
-
-            if (distance < minDistance) {
-              minDistance = distance
-              bestConnection = [connectedStar, unconnectedStar]
-            }
-          }
-        }
-
-        if (bestConnection) {
-          edges.push(bestConnection)
-          connected.add(bestConnection[1])
-          unconnected.delete(bestConnection[1])
-        } else {
-          break // Safety break
-        }
-      }
-
-      // Add occasional forks: connect some additional stars to create branches
-      // This creates a more natural constellation look with forks
-      const forkProbability = 0.3 // 30% chance to add a fork
-
-      // First, connect any remaining unconnected stars
-      for (const connectedStar of Array.from(connected)) {
-        if (Math.random() > forkProbability) continue
-
-        // Find the nearest unconnected star to create a fork
-        let minDist = Infinity
-        let nearestUnconnected: number | null = null
-
-        for (const candidate of starIndices) {
-          if (connected.has(candidate) || candidate === connectedStar) continue
-
-          const dx = stars[connectedStar].x - stars[candidate].x
-          const dy = stars[connectedStar].y - stars[candidate].y
-          const dist = Math.sqrt(dx * dx + dy * dy)
-
-          if (dist < minDist && dist < 150) { // Only fork to nearby stars
-            minDist = dist
-            nearestUnconnected = candidate
-          }
-        }
-
-        if (nearestUnconnected) {
-          edges.push([connectedStar, nearestUnconnected])
-          connected.add(nearestUnconnected)
-        }
-      }
-
-      // Add some branches between already-connected stars to create forks
-      // This makes the constellation look more like a real constellation with branches
-      const connectedArray = Array.from(connected)
-      for (let i = 0; i < connectedArray.length; i++) {
-        if (Math.random() > forkProbability) continue
-
-        const star1 = connectedArray[i]
-        let minDist = Infinity
-        let nearestOther: number | null = null
-
-        for (let j = 0; j < connectedArray.length; j++) {
-          if (i === j) continue
-          const star2 = connectedArray[j]
-
-          // Check if they're already directly connected
-          const alreadyConnected = edges.some(
-            ([a, b]) => (a === star1 && b === star2) || (a === star2 && b === star1)
-          )
-          if (alreadyConnected) continue
-
-          const dx = stars[star1].x - stars[star2].x
-          const dy = stars[star1].y - stars[star2].y
-          const dist = Math.sqrt(dx * dx + dy * dy)
-
-          if (dist < minDist && dist < 120) { // Only fork to nearby stars
-            minDist = dist
-            nearestOther = star2
-          }
-        }
-
-        if (nearestOther !== null) {
-          edges.push([star1, nearestOther])
-        }
-      }
-
-      return edges
-    }
-
-    const createConstellation = () => {
-      // Pick 4-7 random stars that are relatively close
-      const numStarsInConstellation = Math.floor(Math.random() * 7) + 4
-      const centerStar = Math.floor(Math.random() * stars.length)
-      const constellationStars = [centerStar]
-
-      // Find nearby stars
-      const centerX = stars[centerStar].x
-      const centerY = stars[centerStar].y
-      const maxDistance = 200
-
-      for (let i = 0; i < stars.length && constellationStars.length < numStarsInConstellation; i++) {
-        if (i === centerStar) continue
-
-        const dx = stars[i].x - centerX
-        const dy = stars[i].y - centerY
-        const distance = Math.sqrt(dx * dx + dy * dy)
-
-        if (distance < maxDistance) {
-          constellationStars.push(i)
-        }
-      }
-
-      if (constellationStars.length >= 2) {
-        const edges = buildConstellationTree(constellationStars)
-        constellations.push({
-          stars: constellationStars,
-          edges: edges,
-          opacity: 0,
-          glowIntensity: 0,
-          createdAt: Date.now(),
-        })
+    const createComet = () => {
+      const startFromTop = Math.random() > 0.5
+      return {
+        x: startFromTop ? Math.random() * canvas.width : canvas.width,
+        y: startFromTop ? 0 : Math.random() * canvas.height * 0.5,
+        // Faster horizontal, gentler vertical drift for a flatter angle
+        vx: -(Math.random() * 3 + 3),
+        vy: Math.random() * 0.8 + 0.4,
+        size: Math.random() * 1 + 0.5, // Smaller comets
+        opacity: 1,
+        trail: [],
       }
     }
 
-    // Fixed update rate: 30 updates per second
-    const updatesPerSecond = 30
-    const updateInterval = 1000 / updatesPerSecond // ~33.33ms per update
+    const targetFPS = 60
+    const frameInterval = 1000 / targetFPS
+    let lastFrameTime = performance.now()
+    let time = 0
 
-    // Animation loop with fixed update rate
-    const animate = () => {
-      const now = Date.now()
+    const drawStar = (x: number, y: number, size: number, opacity: number) => {
+      // Subtle glow - pure white/gray only
+      const glowSize = size * 3
+      const gradient = ctx.createRadialGradient(x, y, 0, x, y, glowSize)
+      gradient.addColorStop(0, `rgba(255, 255, 255, ${opacity * 0.8})`)
+      gradient.addColorStop(0.4, `rgba(255, 255, 255, ${opacity * 0.15})`)
+      gradient.addColorStop(1, "rgba(255, 255, 255, 0)")
 
-      // Clear canvas
-      ctx.fillStyle = "rgba(10, 10, 25, 1)"
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.fillStyle = gradient
+      ctx.beginPath()
+      ctx.arc(x, y, glowSize, 0, Math.PI * 2)
+      ctx.fill()
 
-      // Create new constellation if needed
-      if (now - lastConstellationTime > nextConstellationInterval) {
-        createConstellation()
-        lastConstellationTime = now
-        nextConstellationInterval = getNextConstellationInterval()
-      }
+      // Draw subtle diffraction spikes for larger stars
+      if (size > 0.8) {
+        ctx.strokeStyle = `rgba(255, 255, 255, ${opacity * 0.3})`
+        ctx.lineWidth = 0.5
+        const spikeLength = size * 2.5
 
-      // Update and draw constellations
-      for (let i = constellations.length - 1; i >= 0; i--) {
-        const constellation = constellations[i]
-        const age = now - constellation.createdAt
-
-        // Single blink: fade in and out slowly
-        if (age < fadeInDuration) {
-          // Fade in
-          constellation.opacity = age / fadeInDuration
-          constellation.glowIntensity = age / fadeInDuration
-        } else if (age > constellationDuration - fadeOutDuration) {
-          // Fade out
-          const fadeOutProgress = (constellationDuration - age) / fadeOutDuration
-          constellation.opacity = fadeOutProgress
-          constellation.glowIntensity = fadeOutProgress
-        } else {
-          // Fully visible at peak
-          constellation.opacity = 1
-          constellation.glowIntensity = 1
-        }
-
-        // Remove old constellations
-        if (age > constellationDuration) {
-          constellations.splice(i, 1)
-          continue
-        }
-
-        // Draw constellation lines with white glow (tree structure with forks)
-        ctx.strokeStyle = `rgba(255, 255, 255, ${constellation.opacity * 0.8})`
-        ctx.lineWidth = 1.5
-        ctx.shadowBlur = 15 * constellation.glowIntensity
-        ctx.shadowColor = "rgba(255, 255, 255, 0.9)"
-
-        // Draw each edge as a line segment
-        constellation.edges.forEach(([starIndex1, starIndex2]) => {
-          const star1 = stars[starIndex1]
-          const star2 = stars[starIndex2]
-
-          ctx.beginPath()
-          ctx.moveTo(star1.x, star1.y)
-          ctx.lineTo(star2.x, star2.y)
-          ctx.stroke()
-        })
-
-        // Draw white glow circles at constellation stars
-        constellation.stars.forEach((starIndex) => {
-          const star = stars[starIndex]
-          const gradient = ctx.createRadialGradient(star.x, star.y, 0, star.x, star.y, 15)
-          gradient.addColorStop(0, `rgba(255, 255, 255, ${constellation.opacity * constellation.glowIntensity * 0.3})`)
-          gradient.addColorStop(1, "rgba(255, 255, 255, 0)")
-
-          ctx.fillStyle = gradient
-          ctx.shadowBlur = 0
-          ctx.beginPath()
-          ctx.arc(star.x, star.y, 25, 0, Math.PI * 2)
-          ctx.fill()
-        })
-      }
-
-      ctx.shadowBlur = 0
-
-      // Get all stars that are part of active constellations
-      const activeConstellationStars = new Set<number>()
-      constellations.forEach((constellation) => {
-        constellation.stars.forEach((starIndex) => {
-          activeConstellationStars.add(starIndex)
-        })
-      })
-
-      // Update and draw stars
-      stars.forEach((star, index) => {
-        // Only update position if star is not in an active constellation
-        if (!activeConstellationStars.has(index)) {
-          // Update position
-          star.x += star.vx
-          star.y += star.vy
-
-          // Wrap around edges
-          if (star.x < 0) star.x = canvas.width
-          if (star.x > canvas.width) star.x = 0
-          if (star.y < 0) star.y = canvas.height
-          if (star.y > canvas.height) star.y = 0
-        }
-
-        // Draw star
-        ctx.fillStyle = `rgba(255, 255, 255, ${star.opacity})`
+        // Vertical spike
         ctx.beginPath()
-        ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2)
-        ctx.fill()
-      })
+        ctx.moveTo(x, y - spikeLength)
+        ctx.lineTo(x, y + spikeLength)
+        ctx.stroke()
+
+        // Horizontal spike
+        ctx.beginPath()
+        ctx.moveTo(x - spikeLength, y)
+        ctx.lineTo(x + spikeLength, y)
+        ctx.stroke()
+      }
+
+      // Tiny bright core - single pixel effect
+      ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`
+      ctx.fillRect(x - size / 2, y - size / 2, size, size)
     }
 
-    // Start animation loop at exactly 30 updates per second
-    const intervalId = setInterval(animate, updateInterval)
+    const animate = (currentTime: number) => {
+      const deltaTime = currentTime - lastFrameTime
+
+      // Only update if enough time has passed for target FPS
+      if (deltaTime >= frameInterval) {
+        lastFrameTime = currentTime - (deltaTime % frameInterval)
+        time += deltaTime / 1000
+
+        ctx.fillStyle = "#06060a"
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+        // Draw stars
+        stars.forEach((star) => {
+          const twinkle = Math.sin(time * star.twinkleSpeed * 60 + star.twinkleOffset) * 0.1 + 0.9
+          const currentOpacity = Math.min(star.opacity * twinkle, 1.0)
+          drawStar(star.x, star.y, star.size, currentOpacity)
+        })
+
+        // Spawn comets randomly
+        if (comets.length < maxComets && Math.random() < 0.02) {
+          comets.push(createComet())
+        }
+
+        // Update and draw comets
+        for (let i = comets.length - 1; i >= 0; i--) {
+          const comet = comets[i]
+
+          comet.trail.unshift({ x: comet.x, y: comet.y, opacity: comet.opacity })
+          if (comet.trail.length > 30) {
+            comet.trail.pop()
+          }
+
+          comet.x += comet.vx
+          comet.y += comet.vy
+
+          if (comet.x < canvas.width * 0.2 || comet.y > canvas.height * 0.8) {
+            comet.opacity -= 0.015
+          }
+
+          comet.trail.forEach((point, j) => {
+            const trailOpacity = point.opacity * (1 - j / comet.trail.length) * 0.5
+            const trailSize = comet.size * (1 - j / comet.trail.length)
+
+            const trailGradient = ctx.createRadialGradient(point.x, point.y, 0, point.x, point.y, trailSize * 2)
+            trailGradient.addColorStop(0, `rgba(255, 255, 255, ${trailOpacity})`)
+            trailGradient.addColorStop(0.5, `rgba(200, 200, 200, ${trailOpacity * 0.3})`)
+            trailGradient.addColorStop(1, "rgba(150, 150, 150, 0)")
+
+            ctx.fillStyle = trailGradient
+            ctx.beginPath()
+            ctx.arc(point.x, point.y, trailSize * 2, 0, Math.PI * 2)
+            ctx.fill()
+          })
+
+          const cometGradient = ctx.createRadialGradient(comet.x, comet.y, 0, comet.x, comet.y, comet.size * 4)
+          cometGradient.addColorStop(0, `rgba(255, 255, 255, ${comet.opacity})`)
+          cometGradient.addColorStop(0.3, `rgba(220, 220, 220, ${comet.opacity * 0.5})`)
+          cometGradient.addColorStop(1, "rgba(180, 180, 180, 0)")
+
+          ctx.fillStyle = cometGradient
+          ctx.beginPath()
+          ctx.arc(comet.x, comet.y, comet.size * 4, 0, Math.PI * 2)
+          ctx.fill()
+
+          // Bright core
+          ctx.fillStyle = `rgba(255, 255, 255, ${comet.opacity})`
+          ctx.fillRect(comet.x - comet.size / 2, comet.y - comet.size / 2, comet.size, comet.size)
+
+          if (comet.x < -50 || comet.y > canvas.height + 50 || comet.opacity <= 0) {
+            comets.splice(i, 1)
+          }
+        }
+      }
+
+      requestAnimationFrame(animate)
+    }
+
+    requestAnimationFrame(animate)
 
     return () => {
       window.removeEventListener("resize", resizeCanvas)
-      clearInterval(intervalId)
     }
   }, [])
 

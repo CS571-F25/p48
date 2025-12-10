@@ -1,5 +1,29 @@
 #root {
+  min-height: 100vh;
+}
+
+.main-content {
   position: relative;
   z-index: 1;
   min-height: 100vh;
+  padding: 8rem 2rem 4rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.content-left {
+  max-width: 1200px;
+  width: 100%;
+}
+
+
+@media (max-width: 768px) {
+  .main-content {
+    padding: 6rem 1rem 2rem;
+  }
+
+  .content-left h1 {
+    font-size: 2rem;
+  }
 }

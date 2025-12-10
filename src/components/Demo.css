@@ -1,0 +1,13 @@
+.demo-container {
+  max-width: 1200px;
+  margin: 4rem auto 0;
+  margin-top: -175px;
+  position: relative;
+  z-index: 1;
+}
+
+.demo-video {
+  width: 100%;
+  height: auto;
+  display: block;
+}
